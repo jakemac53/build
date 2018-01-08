@@ -21,6 +21,9 @@ Future<Null> bootstrapDdc(BuildStep buildStep, {bool useKernel}) async {
   var moduleId = buildStep.inputId.changeExtension(moduleExtension);
   var module = new Module.fromJson(JSON
       .decode(await buildStep.readAsString(moduleId)) as Map<String, dynamic>);
+  
+  await buildStep.hasInput(module.linkedSummaryId);
+  // await buildStep.hasInput(new AssetId('js', 'lib/js.linked.sum'));
 
   // First, ensure all transitive modules are built.
   var transitiveDeps = await _ensureTransitiveModules(module, buildStep);
