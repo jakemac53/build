@@ -15,7 +15,7 @@ import 'reader.dart';
 import 'writer.dart';
 
 /// Pool for async file operations, we don't want to use too many file handles.
-final _descriptorPool = new Pool(32);
+final _descriptorPool = new Pool(16);
 
 /// Basic [AssetReader] which uses a [PackageGraph] to look up where to read
 /// files from disk.

@@ -12,7 +12,7 @@ import 'package:pool/pool.dart';
 import 'util.dart';
 
 /// Pool for async file writes, we don't want to use too many file handles.
-final _descriptorPool = new Pool(32);
+final _descriptorPool = new Pool(16);
 
 /// An on-disk temporary environment for running executables that don't have
 /// a standard Dart library API.
