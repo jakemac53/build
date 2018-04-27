@@ -157,6 +157,8 @@ class AssetHandler {
 String _renderPerformance(BuildPerformance performance, bool hideSkipped) {
   try {
     var rows = new StringBuffer();
+    var startTime =
+        performance.timeIntervals.first.startTime.millisecondsSinceEpoch;
     for (var action in performance.actions) {
       if (hideSkipped &&
           !action.phases.any((phase) => phase.label == 'Build')) {
@@ -164,13 +166,23 @@ String _renderPerformance(BuildPerformance performance, bool hideSkipped) {
       }
       var actionKey = '${action.builder.runtimeType}:${action.primaryInput}';
       for (var phase in action.phases) {
-        var start = phase.startTime.millisecondsSinceEpoch -
-            performance.startTime.millisecondsSinceEpoch;
-        var end = phase.stopTime.millisecondsSinceEpoch -
-            performance.startTime.millisecondsSinceEpoch;
+        var phaseStart =
+            phase.timeIntervals.first.startTime.millisecondsSinceEpoch -
+                startTime;
+        var phaseEnd =
+            phase.timeIntervals.last.stopTime.millisecondsSinceEpoch -
+                startTime;
+        rows.writeln('          '
+            '["$actionKey", "${phase.label}", $phaseStart, $phaseEnd],');
+        // for (var interval in phase.timeIntervals) {
+        //   var intervalStart =
+        //       interval.startTime.millisecondsSinceEpoch - startTime;
+        //   var intervalEnd =
+        //       interval.stopTime.millisecondsSinceEpoch - startTime;
 
-        rows.writeln(
-            '          ["$actionKey", "${phase.label}", $start, $end],');
+        //   rows.writeln('          '
+        //       '["$actionKey", "${phase.label} - real", $intervalStart, $intervalEnd],');
+        // }
       }
     }
     if (performance.duration < new Duration(seconds: 1)) {

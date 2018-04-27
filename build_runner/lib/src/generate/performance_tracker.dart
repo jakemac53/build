@@ -8,17 +8,41 @@ library build_runner.src.generate.performance_tracker;
 import 'dart:async';
 
 import 'package:build/build.dart';
+import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
 import 'package:build_runner/src/util/clock.dart';
 import 'phase.dart';
 
-/// The timings of an operation, including its [startTime], [stopTime], and
-/// [duration].
+class TimeInterval {
+  Duration get duration => stopTime.difference(startTime);
+
+  /// When this operation started, call [start] to set this.
+  DateTime get startTime => _startTime;
+  DateTime _startTime;
+
+  /// When this operation stopped, call [stop] to set this.
+  DateTime get stopTime => _stopTime;
+  DateTime _stopTime;
+
+  /// Start tracking this operation, must only be called once, before [stop].
+  void start() {
+    assert(_startTime == null && _stopTime == null);
+    _startTime = now();
+  }
+
+  /// Stop tracking this operation, must only be called once, after [start].
+  void stop() {
+    assert(_startTime != null && _stopTime == null);
+    _stopTime = now();
+  }
+}
+
+/// The timings of an operation, including its [timeIntervals] and [duration].
 abstract class Timings {
-  Duration get duration;
-  DateTime get startTime;
-  DateTime get stopTime;
+  Duration get duration => timeIntervals.fold(
+      new Duration(), (Duration combined, next) => combined + next.duration);
+  Iterable<TimeInterval> get timeIntervals;
 }
 
 /// The [Timings] of an entire build, including all its [actions].
@@ -59,7 +83,7 @@ abstract class BuildPerformanceTracker
 
   /// Returns a [BuilderActionTracker] for tracking [builder] on [primaryInput]
   /// and adds it to [actions].
-  BuilderActionTracker startBuilderAction(
+  BuilderActionTracker createBuilderAction(
       AssetId primaryInput, Builder builder);
 
   factory BuildPerformanceTracker() => new _BuildPerformanceTrackerImpl();
@@ -73,8 +97,7 @@ abstract class BuildPerformanceTracker
 /// Real implementation of [BuildPerformanceTracker].
 ///
 /// Use [BuildPerformanceTracker] factory to get an instance.
-class _BuildPerformanceTrackerImpl extends Object
-    with _TimeTrackerImpl
+class _BuildPerformanceTrackerImpl extends _TimeTrackerImpl
     implements BuildPerformanceTracker {
   @override
   Iterable<BuildPhaseTracker> get phases => _phases;
@@ -92,20 +115,21 @@ class _BuildPerformanceTrackerImpl extends Object
   @override
   Future<Iterable<AssetId>> trackBuildPhase(
       BuildPhase action, Future<Iterable<AssetId>> runPhase()) {
-    assert(startTime != null && stopTime == null);
+    assert(isRunning);
     var tracker = new BuildPhaseTracker(action);
     _phases.add(tracker);
-    return tracker.track(runPhase);
+    var zone = performanceTrackingZone(tracker);
+    return zone.run(runPhase);
   }
 
   /// Returns a new [BuilderActionTracker] and adds it to [actions].
   ///
   /// The [BuilderActionTracker] will already be started, but you must stop it.
   @override
-  BuilderActionTracker startBuilderAction(
+  BuilderActionTracker createBuilderAction(
       AssetId primaryInput, Builder builder) {
-    assert(startTime != null && stopTime == null);
-    var tracker = new BuilderActionTracker(primaryInput, builder)..start();
+    assert(isRunning);
+    var tracker = new BuilderActionTracker(primaryInput, builder);
     _actions.add(tracker);
     return tracker;
   }
@@ -130,7 +154,7 @@ class _NoOpBuildPerformanceTracker extends Object
   Iterable<BuildPhaseTracker> get phases => throw new UnimplementedError();
 
   @override
-  BuilderActionTracker startBuilderAction(
+  BuilderActionTracker createBuilderAction(
           AssetId primaryInput, Builder builder) =>
       new BuilderActionTracker.noOp();
 
@@ -144,28 +168,13 @@ class _NoOpBuildPerformanceTracker extends Object
 ///
 /// Tracks total time it took to run on all inputs available to that action.
 ///
-/// Use [track] to start actually tracking an operation.
-///
 /// This is only meaningful for non-lazy phases.
-class BuildPhaseTracker extends Object
-    with _TimeTrackerImpl
+class BuildPhaseTracker extends _TimeTrackerImpl
     implements BuildPhasePerformance {
   @override
   final BuildPhase action;
 
   BuildPhaseTracker(this.action);
-
-  /// Runs [runAction], setting [startTime] and [stopTime] accordingly.
-  ///
-  /// Should never be called more than once.
-  Future<Iterable<AssetId>> track(Future<Iterable<AssetId>> runAction()) {
-    assert(startTime == null && stopTime == null);
-    start();
-    return runAction().then((outputs) {
-      stop();
-      return outputs;
-    });
-  }
 }
 
 /// Interface for tracking the [Timings] of an indiviual [Builder] on a given
@@ -187,8 +196,7 @@ abstract class BuilderActionTracker
 /// Real implementation of [BuilderActionTracker] which records timings.
 ///
 /// Use the [BuilderActionTracker] factory to get an instance.
-class _BuilderActionTrackerImpl extends Object
-    with _TimeTrackerImpl
+class _BuilderActionTrackerImpl extends _TimeTrackerImpl
     implements BuilderActionTracker {
   @override
   final Builder builder;
@@ -204,17 +212,8 @@ class _BuilderActionTrackerImpl extends Object
   FutureOr<T> track<T>(FutureOr<T> action(), String label) {
     var tracker = new BuilderActionPhaseTracker(label);
     phases.add(tracker);
-    tracker.start();
-    var result = action();
-    if (result is Future<T>) {
-      return result.then((actualResult) {
-        tracker.stop();
-        return actualResult;
-      });
-    } else {
-      tracker.stop();
-      return result;
-    }
+    var zone = performanceTrackingZone(tracker);
+    return zone.run(action);
   }
 }
 
@@ -249,8 +248,7 @@ class _NoOpBuilderActionTracker extends Object
 /// Tracks the [Timings] of an indivual task.
 ///
 /// These represent a slice of the [BuilderActionPerformance].
-class BuilderActionPhaseTracker extends Object
-    with _TimeTrackerImpl
+class BuilderActionPhaseTracker extends _TimeTrackerImpl
     implements BuilderActionPhasePerformance {
   @override
   final String label;
@@ -261,9 +259,12 @@ class BuilderActionPhaseTracker extends Object
 /// Interface for tracking the [Timings] of an operation using the [start] and
 /// [stop] methods.
 abstract class TimeTracker implements Timings {
+  static const zoneKey = #TimeTracker;
+
   factory TimeTracker() => new _TimeTrackerImpl();
   factory TimeTracker.noOp() => _NoOpTimeTracker.sharedInstance;
 
+  bool get isRunning;
   void start();
   void stop();
 }
@@ -271,39 +272,36 @@ abstract class TimeTracker implements Timings {
 /// Implementation of a real [TimeTracker].
 ///
 /// Use [TimeTracker] factory to get an instance.
-class _TimeTrackerImpl implements TimeTracker {
-  /// When this operation started, call [start] to set this.
-  @override
-  DateTime get startTime => _startTime;
-  DateTime _startTime;
+class _TimeTrackerImpl extends Timings implements TimeTracker {
+  final _timeIntervals = <TimeInterval>[];
 
-  /// When this operation stopped, call [stop] to set this.
-  @override
-  DateTime get stopTime => _stopTime;
-  DateTime _stopTime;
+  TimeInterval _nextInterval;
 
-  /// The total duration of this operation, equivalent to taking the difference
-  /// between [stopTime] and [startTime].
   @override
-  Duration get duration {
-    assert(_startTime != null && _stopTime != null);
-    return new Duration(
-        microseconds:
-            stopTime.microsecondsSinceEpoch - startTime.microsecondsSinceEpoch);
-  }
+  bool get isRunning => _nextInterval != null;
 
-  /// Start tracking this operation, must only be called once, before [stop].
+  @override
+  Iterable<TimeInterval> get timeIntervals => _timeIntervals;
+
+  /// Start tracking this operation, may only be called if currently stopped.
   @override
   void start() {
-    assert(_startTime == null && _stopTime == null);
-    _startTime = now();
+    assert(_nextInterval == null);
+    _nextInterval = new TimeInterval()..start();
   }
 
-  /// Stop tracking this operation, must only be called once, after [start].
+  /// Stop tracking this operation, may only be called if currently started.
   @override
   void stop() {
-    assert(_startTime != null && _stopTime == null);
-    _stopTime = now();
+    assert(_nextInterval != null);
+    if (_nextInterval == null) {
+      // new Logger('PerformanceTracker')
+      //     .warning('Getting stop for some reason $this');
+      return;
+    }
+    _nextInterval.stop();
+    _timeIntervals.add(_nextInterval);
+    _nextInterval = null;
   }
 }
 
@@ -315,14 +313,91 @@ class _NoOpTimeTracker implements TimeTracker {
 
   @override
   Duration get duration => throw new UnimplementedError();
+
   @override
-  DateTime get startTime => throw new UnimplementedError();
+  bool get isRunning => throw new UnimplementedError();
+
   @override
-  DateTime get stopTime => throw new UnimplementedError();
+  Iterable<TimeInterval> get timeIntervals => throw new UnimplementedError();
 
   @override
   void start() {}
 
   @override
   void stop() {}
+}
+
+Zone performanceTrackingZone(TimeTracker timeTracker) {
+  TimeTracker actualTracker(Zone self, Zone original) {
+    if (self == original) return original[TimeTracker.zoneKey] as TimeTracker;
+    return null;
+  }
+
+  TimeTracker runningParentTracker(Zone self, Zone original) {
+    if (self == original) return null;
+    var selfTracker = self[TimeTracker.zoneKey] as TimeTracker;
+    if (selfTracker == null) return null;
+    if (selfTracker.isRunning) return selfTracker;
+    return null;
+  }
+
+  var specification = new ZoneSpecification(
+    scheduleMicrotask: (self, parent, zone, callback) {
+      var wrapped = () {
+        var tracker = actualTracker(self, zone);
+        var parentTracker = runningParentTracker(self, zone);
+        parentTracker?.stop();
+        tracker?.start();
+        try {
+          callback();
+        } finally {
+          tracker?.stop();
+          parentTracker?.start();
+        }
+      };
+      parent.scheduleMicrotask(zone, wrapped);
+    },
+    run: <R>(Zone self, ZoneDelegate parent, Zone zone, R callback()) {
+      var tracker = actualTracker(self, zone);
+      var parentTracker = runningParentTracker(self, zone);
+      parentTracker?.stop();
+      tracker?.start();
+      try {
+        return parent.run(zone, callback);
+      } finally {
+        tracker?.stop();
+        parentTracker?.start();
+      }
+    },
+    runUnary: <R, T>(Zone self, ZoneDelegate parent, Zone zone, R callback(T _),
+        T arg) {
+      var tracker = actualTracker(self, zone);
+      var parentTracker = runningParentTracker(self, zone);
+      parentTracker?.stop();
+      tracker?.start();
+      try {
+        return parent.runUnary(zone, callback, arg);
+      } finally {
+        tracker?.stop();
+        parentTracker?.start();
+      }
+    },
+    runBinary: <R, T1, T2>(Zone self, ZoneDelegate parent, Zone zone,
+        R callback(T1 _, T2 __), T1 arg1, T2 arg2) {
+      var tracker = actualTracker(self, zone);
+      var parentTracker = runningParentTracker(self, zone);
+      parentTracker?.stop();
+      tracker?.start();
+      try {
+        return parent.runBinary(zone, callback, arg1, arg2);
+      } finally {
+        tracker?.stop();
+        parentTracker?.start();
+      }
+    },
+  );
+  var zone = Zone.current.fork(
+      specification: specification,
+      zoneValues: {TimeTracker.zoneKey: timeTracker});
+  return zone;
 }

@@ -133,7 +133,7 @@ void main() {
   group(r'/$perf', () {
     test('serves some sort of page if enabled', () async {
       var tracker = new BuildPerformanceTracker()..start();
-      var actionTracker = tracker.startBuilderAction(
+      var actionTracker = tracker.createBuilderAction(
           makeAssetId('a|web/a.txt'), new TestBuilder());
       actionTracker.track(() {}, 'SomeLabel');
       tracker.stop();

@@ -37,12 +37,13 @@ void stdIOLogListener(LogRecord record, {bool verbose}) {
     lines.add(record.error);
   }
 
-  if (record.stackTrace != null && verbose) {
-    var trace = new Trace.from(record.stackTrace).foldFrames((f) {
-      return f.package == 'build_runner' || f.package == 'build';
-    }, terse: true);
+  if (record.stackTrace != null /* && verbose*/) {
+    lines.add(record.stackTrace);
+    // var trace = new Trace.from(record.stackTrace).foldFrames((f) {
+    //   return f.package == 'build_runner' || f.package == 'build';
+    // }, terse: true);
 
-    lines.add(trace);
+    // lines.add(trace);
   }
 
   var message = new StringBuffer(lines.join('\n'));
