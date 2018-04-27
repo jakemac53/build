@@ -115,7 +115,6 @@ class _BuildPerformanceTrackerImpl extends _TimeTrackerImpl
   @override
   Future<Iterable<AssetId>> trackBuildPhase(
       BuildPhase action, Future<Iterable<AssetId>> runPhase()) {
-    assert(isRunning);
     var tracker = new BuildPhaseTracker(action);
     _phases.add(tracker);
     var zone = performanceTrackingZone(tracker);
@@ -128,7 +127,6 @@ class _BuildPerformanceTrackerImpl extends _TimeTrackerImpl
   @override
   BuilderActionTracker createBuilderAction(
       AssetId primaryInput, Builder builder) {
-    assert(isRunning);
     var tracker = new BuilderActionTracker(primaryInput, builder);
     _actions.add(tracker);
     return tracker;
@@ -327,73 +325,135 @@ class _NoOpTimeTracker implements TimeTracker {
   void stop() {}
 }
 
-Zone performanceTrackingZone(TimeTracker timeTracker) {
-  TimeTracker actualTracker(Zone self, Zone original) {
-    if (self == original) return original[TimeTracker.zoneKey] as TimeTracker;
-    return null;
-  }
+TimeTracker _activeTracker;
 
-  TimeTracker runningParentTracker(Zone self, Zone original) {
-    if (self == original) return null;
-    var selfTracker = self[TimeTracker.zoneKey] as TimeTracker;
-    if (selfTracker == null) return null;
-    if (selfTracker.isRunning) return selfTracker;
-    return null;
-  }
+Zone performanceTrackingZone(TimeTracker timeTracker) {
+  // TimeTracker actualTracker(Zone self, Zone original) {
+  //   if (self == original) return original[TimeTracker.zoneKey] as TimeTracker;
+  //   return null;
+  // }
 
   var specification = new ZoneSpecification(
-    scheduleMicrotask: (self, parent, zone, callback) {
+    scheduleMicrotask: (selfZone, parent, scheduledZone, callback) {
       var wrapped = () {
-        var tracker = actualTracker(self, zone);
-        var parentTracker = runningParentTracker(self, zone);
-        parentTracker?.stop();
+        var tracker = scheduledZone[TimeTracker.zoneKey] as TimeTracker;
+        if (tracker == _activeTracker) {
+          callback();
+          return;
+        }
+
+        var parentTracker = _activeTracker;
+        _activeTracker = tracker;
+        if (parentTracker != tracker) {
+          parentTracker?.stop();
+        }
         tracker?.start();
         try {
           callback();
         } finally {
           tracker?.stop();
-          parentTracker?.start();
+          if (parentTracker != tracker) {
+            parentTracker?.start();
+            _activeTracker = parentTracker;
+          } else {
+            _activeTracker = null;
+          }
         }
       };
-      parent.scheduleMicrotask(zone, wrapped);
+      parent.scheduleMicrotask(scheduledZone, wrapped);
     },
-    run: <R>(Zone self, ZoneDelegate parent, Zone zone, R callback()) {
-      var tracker = actualTracker(self, zone);
-      var parentTracker = runningParentTracker(self, zone);
-      parentTracker?.stop();
+    run: <R>(selfZone, parentZone, scheduledZone, R callback()) {
+      TimeTracker tracker;
+      final parentTracker = _activeTracker;
+      if (selfZone == scheduledZone) {
+        tracker = scheduledZone[TimeTracker.zoneKey] as TimeTracker;
+        if (tracker == _activeTracker) {
+          return parentZone.run(scheduledZone, callback);
+        }
+        _activeTracker = tracker;
+      }
+      if (parentTracker?.isRunning == true) parentTracker?.stop();
       tracker?.start();
       try {
-        return parent.run(zone, callback);
+        return parentZone.run(scheduledZone, callback);
       } finally {
         tracker?.stop();
-        parentTracker?.start();
+        if (parentTracker?.isRunning == false) parentTracker?.start();
+        _activeTracker = parentTracker;
       }
+      // var tracker = actualTracker(self, zone);
+      // var parentTracker = runningParentTracker(self, zone);
+      // parentTracker?.stop();
+      // tracker?.start();
+      // try {
+      //   return parent.run(zone, callback);
+      // } finally {
+      //   tracker?.stop();
+      //   parentTracker?.start();
+      // }
     },
-    runUnary: <R, T>(Zone self, ZoneDelegate parent, Zone zone, R callback(T _),
-        T arg) {
-      var tracker = actualTracker(self, zone);
-      var parentTracker = runningParentTracker(self, zone);
-      parentTracker?.stop();
+    runUnary:
+        <R, T>(selfZone, parentZone, scheduledZone, R callback(T _), T arg) {
+      TimeTracker tracker;
+      final parentTracker = _activeTracker;
+      if (selfZone == scheduledZone) {
+        tracker = scheduledZone[TimeTracker.zoneKey] as TimeTracker;
+        if (tracker == _activeTracker) {
+          return parentZone.runUnary(scheduledZone, callback, arg);
+        }
+        _activeTracker = tracker;
+      }
+      if (parentTracker?.isRunning == true) parentTracker?.stop();
       tracker?.start();
+      if (tracker?.isRunning == true) tracker = null;
       try {
-        return parent.runUnary(zone, callback, arg);
+        return parentZone.runUnary(scheduledZone, callback, arg);
       } finally {
         tracker?.stop();
-        parentTracker?.start();
+        if (parentTracker?.isRunning == false) parentTracker?.start();
+        _activeTracker = parentTracker;
       }
+      // var tracker = actualTracker(self, zone);
+      // var parentTracker = runningParentTracker(self, zone);
+      // parentTracker?.stop();
+      // tracker?.start();
+      // try {
+      //   return parent.runUnary(zone, callback, arg);
+      // } finally {
+      //   tracker?.stop();
+      //   parentTracker?.start();
+      // }
     },
-    runBinary: <R, T1, T2>(Zone self, ZoneDelegate parent, Zone zone,
+    runBinary: <R, T1, T2>(selfZone, parentZone, scheduledZone,
         R callback(T1 _, T2 __), T1 arg1, T2 arg2) {
-      var tracker = actualTracker(self, zone);
-      var parentTracker = runningParentTracker(self, zone);
-      parentTracker?.stop();
+      TimeTracker tracker;
+      final parentTracker = _activeTracker;
+      if (selfZone == scheduledZone) {
+        tracker = scheduledZone[TimeTracker.zoneKey] as TimeTracker;
+        if (tracker == _activeTracker) {
+          return parentZone.runBinary(scheduledZone, callback, arg1, arg2);
+        }
+        _activeTracker = tracker;
+      }
+      if (parentTracker?.isRunning == true) parentTracker?.stop();
       tracker?.start();
       try {
-        return parent.runBinary(zone, callback, arg1, arg2);
+        return parentZone.runBinary(scheduledZone, callback, arg1, arg2);
       } finally {
         tracker?.stop();
-        parentTracker?.start();
+        if (parentTracker?.isRunning == false) parentTracker?.start();
+        _activeTracker = parentTracker;
       }
+      // var tracker = actualTracker(self, zone);
+      // var parentTracker = runningParentTracker(self, zone);
+      // parentTracker?.stop();
+      // tracker?.start();
+      // try {
+      //   return parent.runBinary(zone, callback, arg1, arg2);
+      // } finally {
+      //   tracker?.stop();
+      //   parentTracker?.start();
+      // }
     },
   );
   var zone = Zone.current.fork(
