@@ -50,6 +50,26 @@ builders:
         compiler: dart2js
     applies_builders:
       - build_web_compilers|dart2js_archive_extractor
+  vm_entrypoint:
+    import: "package:build_web_compilers/builders.dart"
+    builder_factories:
+      - vmEntrypointBuilder
+    build_extensions:
+      .dart:
+        - .app.dill
+    required_inputs:
+      - .dart
+      - .module.dill
+      - .module
+    build_to: cache
+    auto_apply: root_package
+    defaults:
+      generate_for:
+        include:
+          - bin/**
+          - test/**.vm_test.dart
+          - example/**
+          - benchmark/**
 post_process_builders:
   dart2js_archive_extractor:
     import: "package:build_web_compilers/builders.dart"

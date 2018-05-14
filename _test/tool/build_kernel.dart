@@ -24,27 +24,35 @@ Future main(List<String> args) async {
           metaModuleCleanBuilder,
           moduleBuilder,
           (_) => new KernelSummaryBuilder(),
+          (_) => new KernelModuleBuilder(),
         ],
         toAllPackages(),
         isOptional: true,
         hideOutput: true),
-    apply(
-        'build_web_compilers|ddc',
-        [
-          (_) => new DevCompilerBuilder(useKernel: true),
-        ],
-        toAllPackages(),
-        isOptional: true,
-        hideOutput: true),
-    apply(
-        'build_web_compilers|entrypoint',
-        [
-          (_) => new WebEntrypointBuilder(WebCompiler.DartDevc, useKernel: true)
-        ],
-        toRoot(),
+    // apply(
+    //     'build_web_compilers|ddc',
+    //     [
+    //       (_) => new DevCompilerBuilder(useKernel: true),
+    //     ],
+    //     toAllPackages(),
+    //     isOptional: true,
+    //     hideOutput: true),
+    // apply(
+    //     'build_web_compilers|entrypoint',
+    //     [
+    //       (_) => new WebEntrypointBuilder(WebCompiler.DartDevc, useKernel: true)
+    //     ],
+    //     toRoot(),
+    //     defaultGenerateFor: const InputSet(include: const [
+    //       'web/**.dart',
+    //       'test/**.browser_test.dart',
+    //     ]),
+    //     hideOutput: true),
+    apply('build_web_compilers|vm_entrypoint',
+        [(_) => new VmEntrypointBuilder()], toRoot(),
         defaultGenerateFor: const InputSet(include: const [
-          'web/**.dart',
-          'test/**.browser_test.dart',
+          'bin/hello.dart',
+          'test/help_test.dart.vm_test.dart',
         ]),
         hideOutput: true)
   ];

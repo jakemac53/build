@@ -16,3 +16,5 @@ PostProcessBuilder dartSourceCleanup(BuilderOptions options) =>
         ? const FileDeletingBuilder(const ['.dart', '.js.map'])
         : const FileDeletingBuilder(const ['.dart', '.js.map'],
             isEnabled: false);
+
+Builder vmEntrypointBuilder(_) => const VmEntrypointBuilder();

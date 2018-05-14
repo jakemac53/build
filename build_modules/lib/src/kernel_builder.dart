@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:bazel_worker/bazel_worker.dart';
 import 'package:build/build.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:scratch_space/scratch_space.dart';
 
@@ -17,10 +18,11 @@ import 'modules.dart';
 import 'scratch_space.dart';
 import 'workers.dart';
 
-const kernelSummaryExtension = '.dill';
+const kernelModuleExtension = '.full.dill';
+const kernelSummaryExtension = '.sum.dill';
 const multiRootScheme = 'org-dartlang-app';
 
-/// A builder which can output unlinked summaries!
+/// A builder which can output kernel summaries.
 class KernelSummaryBuilder implements Builder {
   const KernelSummaryBuilder();
 
@@ -35,16 +37,38 @@ class KernelSummaryBuilder implements Builder {
         json.decode(await buildStep.readAsString(buildStep.inputId))
             as Map<String, dynamic>);
     try {
-      await _createKernelSummary(module, buildStep);
-    } on KernelSummaryException catch (e, s) {
-      log.warning('Error creating ${module.unlinkedSummaryId}:\n$e\n$s');
+      await _createKernel(module, buildStep, summaryOnly: true);
+    } on KernelException catch (e, s) {
+      log.warning('Error creating ${module.kernelSummaryId}:\n', e, s);
     }
   }
 }
 
-/// Creates a kernel summary file for [module].
-Future _createKernelSummary(Module module, BuildStep buildStep,
-    {bool isRoot = false}) async {
+/// A builder which can output a full kernel module.
+class KernelModuleBuilder implements Builder {
+  const KernelModuleBuilder();
+
+  @override
+  final buildExtensions = const {
+    moduleExtension: const [kernelModuleExtension]
+  };
+
+  @override
+  Future build(BuildStep buildStep) async {
+    var module = new Module.fromJson(
+        json.decode(await buildStep.readAsString(buildStep.inputId))
+            as Map<String, dynamic>);
+    try {
+      await _createKernel(module, buildStep, summaryOnly: false);
+    } on KernelException catch (e, s) {
+      log.warning('Error creating ${module.kernelModuleId}:\n$e\n$s');
+    }
+  }
+}
+
+/// Creates a kernel file for [module].
+Future _createKernel(Module module, BuildStep buildStep,
+    {bool isRoot = false, @required bool summaryOnly}) async {
   var transitiveDeps = await module.computeTransitiveDependencies(buildStep);
   var transitiveSummaryDeps = <AssetId>[];
   var transitiveSourceDeps = <AssetId>[];
@@ -66,7 +90,8 @@ Future _createKernelSummary(Module module, BuildStep buildStep,
     ..addAll(transitiveSummaryDeps)
     ..addAll(transitiveSourceDeps);
   await scratchSpace.ensureAssets(allAssetIds, buildStep);
-  var summaryOutputFile = scratchSpace.fileFor(module.kernelSummaryId);
+  var outputId = summaryOnly ? module.kernelSummaryId : module.kernelModuleId;
+  var outputFile = scratchSpace.fileFor(outputId);
   var request = new WorkRequest();
 
   var allDeps = <AssetId>[]
@@ -76,17 +101,20 @@ Future _createKernelSummary(Module module, BuildStep buildStep,
 
   // We need to make sure and clean up the temp dir, even if we fail to compile.
   try {
-    var sdkSummary = p.url.join(sdkDir, 'lib', '_internal', 'ddc_sdk.dill');
+    // var sdkSummary = p.url.join(sdkDir, 'lib', '_internal', 'ddc_sdk.dill');
+    var sdkSummary =
+        p.url.join(sdkDir, 'lib', '_internal', 'vm_outline_strong.dill');
     request.arguments.addAll([
       '--dart-sdk-summary',
       sdkSummary,
       '--output',
-      summaryOutputFile.path,
+      outputFile.path,
       '--packages-file',
       packagesFile.path,
       '--multi-root-scheme',
       multiRootScheme,
       '--exclude-non-sources',
+      summaryOnly ? '--no-summary-only' : '--summary-only',
     ]);
 
     // Add all summaries as summary inputs.
@@ -104,13 +132,12 @@ Future _createKernelSummary(Module module, BuildStep buildStep,
 
     var analyzer = await buildStep.fetchResource(frontendDriverResource);
     var response = await analyzer.doWork(request);
-    var summaryFile = scratchSpace.fileFor(module.kernelSummaryId);
-    if (response.exitCode == EXIT_CODE_ERROR || !await summaryFile.exists()) {
-      throw new KernelSummaryException(module.kernelSummaryId, response.output);
+    if (response.exitCode != EXIT_CODE_OK || !await outputFile.exists()) {
+      throw new KernelException(outputId, response.output);
     }
 
     // Copy the output back using the buildStep.
-    await scratchSpace.copyOutput(module.kernelSummaryId, buildStep);
+    await scratchSpace.copyOutput(outputId, buildStep);
   } finally {
     await packagesFile.parent.delete(recursive: true);
   }
