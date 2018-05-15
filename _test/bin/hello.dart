@@ -1,3 +1,5 @@
+import 'foo.dart';
+
 main() {
-  print('hello world');
+  print(foo);
 }

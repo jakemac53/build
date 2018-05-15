@@ -114,7 +114,7 @@ Future _createKernel(Module module, BuildStep buildStep,
       '--multi-root-scheme',
       multiRootScheme,
       '--exclude-non-sources',
-      summaryOnly ? '--no-summary-only' : '--summary-only',
+      summaryOnly ? '--summary-only' : '--no-summary-only',
     ]);
 
     // Add all summaries as summary inputs.

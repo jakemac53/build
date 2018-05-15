@@ -38,10 +38,6 @@ class VmEntrypointBuilder implements Builder {
         .map((m) => m.kernelModuleId)
         .followedBy([module.kernelModuleId]);
     var appContents = <int>[];
-    /*new File(p.join(cli_util.getSdkPath(), 'lib', '_internal',
-            'vm_platform_strong.dill'))
-        .readAsBytesSync()
-        .toList();*/
     for (var dependencyId in transitiveKernelModules) {
       appContents.addAll(await buildStep.readAsBytes(dependencyId));
     }
