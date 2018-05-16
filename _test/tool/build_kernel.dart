@@ -53,8 +53,8 @@ Future main(List<String> args) async {
         defaultGenerateFor: const InputSet(include: const [
           'bin/hello.dart',
           'test/foo_test.dart',
-          'test/help_test.dart',
-          'test/help_test.dart.vm_test.dart',
+          // 'test/help_test.dart',
+          // 'test/help_test.dart.vm_test.dart',
         ]),
         hideOutput: true)
   ];

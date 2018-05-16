@@ -1,7 +1,9 @@
-import 'package:test/test.dart';
+import 'package:collection/collection.dart';
 
 main() {
-  test('foo', () {
-    expect(true, isTrue);
-  });
+  var queue = new QueueList.from([]);
+  queue.add('baz');
+  print(queue.first);
+  print(queue.length);
+  print(queue);
 }

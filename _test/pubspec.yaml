@@ -29,6 +29,8 @@ dependency_overrides:
     path: ../build_web_compilers
   scratch_space:
     path: ../scratch_space
+  test:
+    path: ../../test
 
 transformers:
 # TODO: only needed because pub serve complains otherwise
