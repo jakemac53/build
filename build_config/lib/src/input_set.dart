@@ -10,7 +10,7 @@ part 'input_set.g.dart';
 ///
 /// Takes a list of strings in glob format for [include] and [exclude]. Matches
 /// the `glob()` function in skylark.
-@JsonSerializable()
+@JsonSerializable(createToJson: false)
 class InputSet {
   static const anything = InputSet();
 
@@ -37,7 +37,7 @@ class InputSet {
       throw ArgumentError.value(json, 'sources',
           'Expected a Map or a List but got a ${json.runtimeType}');
     }
-    final parsed = _$InputSetFromJson(json as Map);
+    final parsed = _$InputSetFromJson((json as Map).cast());
     if (parsed.include != null && parsed.include!.any((s) => s.isEmpty)) {
       throw ArgumentError.value(
           parsed.include, 'include', 'Include globs must not be empty');

@@ -10,6 +10,7 @@ workspace:
 - _test/pkgs/provides_builder
 - _test_common
 - build
+# - build/tools/analyzer_plugin
 - build_config
 - build_daemon
 - build_modules

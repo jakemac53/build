@@ -1,3 +1,4 @@
+// dart format width=80
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'build_config.dart';
@@ -6,56 +7,26 @@ part of 'build_config.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-BuildConfig _$BuildConfigFromJson(Map json) => $checkedCreate(
-      'BuildConfig',
-      json,
-      ($checkedConvert) {
-        $checkKeys(
-          json,
-          allowedKeys: const [
-            'builders',
-            'post_process_builders',
-            'targets',
-            'global_options',
-            'additional_public_assets'
-          ],
-        );
-        final val = BuildConfig(
-          buildTargets: $checkedConvert(
-              'targets', (v) => _buildTargetsFromJson(v as Map?)),
-          globalOptions: $checkedConvert(
-              'global_options',
-              (v) => (v as Map?)?.map(
-                    (k, e) => MapEntry(
-                        k as String, GlobalBuilderConfig.fromJson(e as Map)),
-                  )),
-          builderDefinitions: $checkedConvert(
-              'builders',
-              (v) => (v as Map?)?.map(
-                    (k, e) => MapEntry(
-                        k as String, BuilderDefinition.fromJson(e as Map)),
-                  )),
-          postProcessBuilderDefinitions: $checkedConvert(
-              'post_process_builders',
-              (v) =>
-                  (v as Map?)?.map(
-                    (k, e) => MapEntry(k as String,
-                        PostProcessBuilderDefinition.fromJson(e as Map)),
-                  ) ??
-                  const {}),
-          additionalPublicAssets: $checkedConvert(
-              'additional_public_assets',
-              (v) =>
-                  (v as List<dynamic>?)?.map((e) => e as String).toList() ??
-                  const []),
-        );
-        return val;
-      },
-      fieldKeyMap: const {
-        'buildTargets': 'targets',
-        'globalOptions': 'global_options',
-        'builderDefinitions': 'builders',
-        'postProcessBuilderDefinitions': 'post_process_builders',
-        'additionalPublicAssets': 'additional_public_assets'
-      },
+BuildConfig _$BuildConfigFromJson(Map<String, dynamic> json) => BuildConfig(
+      buildTargets: _buildTargetsFromJson(json['targets'] as Map?),
+      globalOptions: (json['globalOptions'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(
+            k, GlobalBuilderConfig.fromJson(e as Map<String, dynamic>)),
+      ),
+      builderDefinitions: (json['builders'] as Map<String, dynamic>?)?.map(
+        (k, e) =>
+            MapEntry(k, BuilderDefinition.fromJson(e as Map<String, dynamic>)),
+      ),
+      postProcessBuilderDefinitions:
+          (json['post_process_builders'] as Map<String, dynamic>?)?.map(
+                (k, e) => MapEntry(
+                    k,
+                    PostProcessBuilderDefinition.fromJson(
+                        e as Map<String, dynamic>)),
+              ) ??
+              const {},
+      additionalPublicAssets: (json['additionalPublicAssets'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
     );

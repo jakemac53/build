@@ -1,0 +1,19 @@
+name: build_analyzer_plugin
+description: An analyzer plugin for package:build
+version: 0.0.1-wip
+
+environment:
+  sdk: '^3.6.0'
+
+dependencies:
+  analyzer:
+  analyzer_plugin:
+  build:
+  collection:
+  json_annotation:
+  json_serializable:
+  source_gen:
+
+dev_dependencies:
+  lints: ^2.0.0
+  test: ^1.16.0
