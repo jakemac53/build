@@ -1,0 +1,17 @@
+name: plugin_torture_test
+publish_to: none
+environment:
+  sdk: ^3.6.0
+resolution: workspace
+
+dependencies:
+  analyzer: ">=5.0.0 <8.0.0"
+  build: ^2.0.0
+  # Not imported in code, but used to constrain `build.yaml` requirements
+  build_config: ^1.0.0
+  json_annotation:
+
+dev_dependencies:
+  benchmark_generator:
+    path: tool/benchmark_generator
+  json_serializable:
