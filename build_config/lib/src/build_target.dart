@@ -12,7 +12,7 @@ import 'key_normalization.dart';
 
 part 'build_target.g.dart';
 
-@JsonSerializable(createToJson: false)
+@JsonSerializable()
 class BuildTarget {
   final bool autoApplyBuilders;
 
@@ -47,7 +47,7 @@ class BuildTarget {
 
   factory BuildTarget.fromJson(Map json) {
     ArgumentError.checkNotNull(json);
-    return _$BuildTargetFromJson(json.cast());
+    return _$BuildTargetFromJson(json);
   }
 
   @override
@@ -65,7 +65,7 @@ class BuildTarget {
 /// Build targets may have builders applied automatically based on
 /// [BuilderDefinition.autoApply] and may override with more specific
 /// configuration.
-@JsonSerializable(createToJson: false)
+@JsonSerializable()
 class TargetBuilderConfig {
   /// Overrides the setting of whether the Builder would run on this target.
   ///
@@ -111,7 +111,7 @@ class TargetBuilderConfig {
 
   factory TargetBuilderConfig.fromJson(Map json) {
     ArgumentError.checkNotNull(json);
-    return _$TargetBuilderConfigFromJson(json.cast());
+    return _$TargetBuilderConfigFromJson(json);
   }
 
   @override
@@ -125,7 +125,7 @@ class TargetBuilderConfig {
 }
 
 /// The configuration for a Builder applied globally.
-@JsonSerializable(createToJson: false)
+@JsonSerializable()
 class GlobalBuilderConfig {
   /// The options to pass to the `BuilderFactory` when constructing this
   /// builder.
@@ -168,7 +168,7 @@ class GlobalBuilderConfig {
 
   factory GlobalBuilderConfig.fromJson(Map json) {
     ArgumentError.checkNotNull(json);
-    return _$GlobalBuilderConfigFromJson(json.cast());
+    return _$GlobalBuilderConfigFromJson(json);
   }
 
   @override

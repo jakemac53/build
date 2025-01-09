@@ -25,7 +25,7 @@ enum BuildTo {
 }
 
 /// Definition of a builder parsed from the `builders` section of `build.yaml`.
-@JsonSerializable(createToJson: false)
+@JsonSerializable()
 class BuilderDefinition {
   /// The package which provides this Builder.
   String get package => packageExpando[this]!;
@@ -128,7 +128,7 @@ class BuilderDefinition {
 
   factory BuilderDefinition.fromJson(Map json) {
     ArgumentError.checkNotNull(json);
-    return _$BuilderDefinitionFromJson(json.cast());
+    return _$BuilderDefinitionFromJson(json);
   }
 
   @override
@@ -147,7 +147,7 @@ class BuilderDefinition {
 
 /// The definition of a `PostProcessBuilder` in the `post_process_builders`
 /// section of a `build.yaml`.
-@JsonSerializable(createToJson: false)
+@JsonSerializable()
 class PostProcessBuilderDefinition {
   /// The package which provides this Builder.
   String get package => packageExpando[this]!;
@@ -188,7 +188,7 @@ class PostProcessBuilderDefinition {
 
   factory PostProcessBuilderDefinition.fromJson(Map json) {
     ArgumentError.checkNotNull(json);
-    return _$PostProcessBuilderDefinitionFromJson(json.cast());
+    return _$PostProcessBuilderDefinitionFromJson(json);
   }
 
   @override
@@ -201,7 +201,7 @@ class PostProcessBuilderDefinition {
 
 /// Default values that builder authors can specify when users don't fill in the
 /// corresponding key for [TargetBuilderConfig].
-@JsonSerializable(createToJson: false)
+@JsonSerializable()
 class TargetBuilderConfigDefaults {
   final InputSet generateFor;
 
@@ -213,9 +213,9 @@ class TargetBuilderConfigDefaults {
 
   const TargetBuilderConfigDefaults({
     InputSet? generateFor,
-    Map<String, Object?>? options,
-    Map<String, Object?>? devOptions,
-    Map<String, Object?>? releaseOptions,
+    Map<String, dynamic>? options,
+    Map<String, dynamic>? devOptions,
+    Map<String, dynamic>? releaseOptions,
   })  : generateFor = generateFor ?? InputSet.anything,
         options = options ?? const {},
         devOptions = devOptions ?? const {},
@@ -223,6 +223,6 @@ class TargetBuilderConfigDefaults {
 
   factory TargetBuilderConfigDefaults.fromJson(Map json) {
     ArgumentError.checkNotNull(json);
-    return _$TargetBuilderConfigDefaultsFromJson(json.cast());
+    return _$TargetBuilderConfigDefaultsFromJson(json);
   }
 }

@@ -20,7 +20,7 @@ import 'key_normalization.dart';
 part 'build_config.g.dart';
 
 /// The parsed values from a `build.yaml` file.
-@JsonSerializable(createToJson: false)
+@JsonSerializable()
 class BuildConfig {
   /// Returns a parsed [BuildConfig] file in [path], if one exist, otherwise a
   /// default config.
@@ -107,8 +107,8 @@ class BuildConfig {
     try {
       return checkedYamlDecode(
         configYaml,
-        (map) => BuildConfig.fromMap(
-            packageName, dependencies, map?.cast() ?? const {}),
+        (map) =>
+            BuildConfig.fromMap(packageName, dependencies, map ?? const {}),
         allowNull: true,
         sourceUrl: configYamlPath == null ? null : Uri.file(configYamlPath),
       );
@@ -120,7 +120,7 @@ class BuildConfig {
   /// Create a [BuildConfig] read a map which was already parsed.
   factory BuildConfig.fromMap(
       String packageName, Iterable<String> dependencies, Map config) {
-    return runInBuildConfigZone(() => BuildConfig._fromJson(config.cast()),
+    return runInBuildConfigZone(() => BuildConfig._fromJson(config),
         packageName, dependencies.toList());
   }
 
@@ -164,8 +164,7 @@ class BuildConfig {
     });
   }
 
-  factory BuildConfig._fromJson(Map<String, Object?> json) =>
-      _$BuildConfigFromJson(json);
+  factory BuildConfig._fromJson(Map json) => _$BuildConfigFromJson(json);
 }
 
 String _defaultTarget(String package) => '$package:$package';
@@ -181,7 +180,7 @@ Map<String, BuildTarget> _buildTargetsFromJson(Map? json) {
   }
   var targets = json.map((key, target) => MapEntry(
       normalizeTargetKeyDefinition(key as String, currentPackage),
-      BuildTarget.fromJson((target as Map).cast())));
+      BuildTarget.fromJson(target as Map)));
 
   if (!targets.containsKey(_defaultTarget(currentPackage))) {
     throw ArgumentError('Must specify a target with the name '
