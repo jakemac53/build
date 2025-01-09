@@ -12,5 +12,3 @@ analyzer:
     # Prevents extra work during some e2e test runs.
     - "dart2js_test/**"
     - ".dart_tool/**"
-  plugins:
-    - build
