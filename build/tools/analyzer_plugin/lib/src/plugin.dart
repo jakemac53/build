@@ -36,8 +36,53 @@ class BuildAnalyzerPlugin extends ServerPlugin {
     _ensureListeningToLogs();
   }
 
+  /// Analyzes the given files.
+  /// By default invokes [analyzeFile] for every file.
+  /// Implementations may override to optimize for batch analysis.
+  Future<void> analyzeFiles({
+    required AnalysisContext analysisContext,
+    required List<String> paths,
+  }) async {
+    var pathSet = paths.toSet();
+
+    // First analyze priority files.
+    await Future.wait([
+      for (var path in priorityPaths)
+        if (pathSet.remove(path))
+          analyzeFile(
+            analysisContext: analysisContext,
+            path: path,
+          )
+    ]);
+
+    // Then analyze the remaining files.
+    await Future.wait([
+      for (var path in pathSet)
+        analyzeFile(
+          analysisContext: analysisContext,
+          path: path,
+        )
+    ]);
+  }
+
   @override
   Future<void> analyzeFile({
+    required AnalysisContext analysisContext,
+    required String path,
+  }) async {
+    var scheduledTask = _scheduledBuilds[path] =
+        () => _analyzeFile(analysisContext: analysisContext, path: path);
+
+    // Avoid doing tons of rebuilds as a user types, we wait a second and only
+    // if this is still the latest build do we actually do anything;
+    await Future.delayed(Duration(seconds: 1));
+    if (_scheduledBuilds[path] == scheduledTask) {
+      await scheduledTask();
+    }
+  }
+
+  /// Actual implementation, we only run this after a short debounce delay.
+  Future<void> _analyzeFile({
     required AnalysisContext analysisContext,
     required String path,
   }) async {
@@ -234,3 +279,6 @@ final Symbol _analyzeFileLogsKey = #_analyzeFileLogsKey;
 extension on Zone {
   List<LogRecord>? get logs => this[_analyzeFileLogsKey] as List<LogRecord>?;
 }
+
+/// A map of scheduled builds per file, we debounce builds to avoid thrashing.
+final Map<String, Function> _scheduledBuilds = {};
