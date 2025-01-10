@@ -4,6 +4,7 @@ import 'dart:io' as io;
 
 import 'package:analyzer/dart/analysis/analysis_context.dart';
 import 'package:analyzer/dart/analysis/session.dart';
+import 'package:analyzer/dart/element/element.dart' as analyzer;
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer_plugin/channel/channel.dart';
 import 'package:analyzer_plugin/plugin/plugin.dart';
@@ -14,6 +15,7 @@ import 'package:build/build.dart';
 import 'package:crypto/crypto.dart';
 import 'package:glob/glob.dart';
 import 'package:logging/logging.dart';
+import 'package:source_gen/source_gen.dart';
 
 import 'resolver.dart';
 
@@ -131,19 +133,51 @@ class BuildAnalyzerPlugin extends ServerPlugin {
     }
 
     AnalysisError convertLog(LogRecord log) {
+      // If an AnalysisError was logged, just return that.
+      if (log.error case AnalysisError error) return error;
+
       final severity = switch (log.level) {
         var level when level >= Level.SEVERE => AnalysisErrorSeverity.ERROR,
         var level when level >= Level.WARNING => AnalysisErrorSeverity.WARNING,
         _ => AnalysisErrorSeverity.INFO,
       };
-      return AnalysisError(
-        severity,
-        AnalysisErrorType.LINT,
-        // TODO: Grab from stack trace?
-        Location(path, 0, 10, 1, 1, endLine: 1, endColumn: 11),
-        log.fullMessage,
-        log.loggerName,
-      );
+
+      // If we get an `InvalidGenerationSource`, convert those to nice errors
+      // using the location of the element or node associated with it.
+      if (log.error case InvalidGenerationSource sourceGenError) {
+        var location = switch (sourceGenError) {
+              InvalidGenerationSource(node: var node?) =>
+                Location(path, node.offset, node.length, 2, 1),
+              InvalidGenerationSource(
+                element: analyzer.Element(
+                  declaration: analyzer.Element(
+                    nameLength: var length,
+                    nameOffset: var offset
+                  )
+                )
+              ) =>
+                Location(path, offset, length, 3, 1),
+              _ => null,
+            } ??
+            Location(path, 0, 10, 1, 1, endLine: 1, endColumn: 11);
+        return AnalysisError(
+          severity,
+          AnalysisErrorType.LINT,
+          location,
+          sourceGenError.message,
+          log.loggerName,
+          correction: sourceGenError.todo,
+        );
+      } else {
+        return AnalysisError(
+          severity,
+          AnalysisErrorType.LINT,
+          // TODO: Grab from stack trace?
+          Location(path, 0, 10, 1, 1, endLine: 1, endColumn: 11),
+          log.fullMessage,
+          log.loggerName,
+        );
+      }
     }
 
     // We always send notifications, even if they are empty. This clears old
@@ -169,8 +203,8 @@ class BuildAnalyzerPlugin extends ServerPlugin {
       }
       await runBuilder(builder, [id], reader, writer, resolvers,
           logger: logger);
-    } on InconsistentAnalysisException {
-      // Ignore these, we will be re-ran.
+    } catch (_) {
+      // Ignore errors, runBuilder already reports them through the logger.
       return;
     }
   }
