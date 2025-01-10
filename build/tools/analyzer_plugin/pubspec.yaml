@@ -10,8 +10,11 @@ dependencies:
   analyzer_plugin:
   build:
   collection:
+  crypto:
+  glob:
   json_annotation:
   json_serializable:
+  logging:
   source_gen:
 
 dev_dependencies:

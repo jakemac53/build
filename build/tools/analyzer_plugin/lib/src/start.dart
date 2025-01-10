@@ -5,6 +5,7 @@ import 'package:analyzer_plugin/starter.dart';
 import 'package:build/build.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:json_serializable/json_serializable.dart';
+// ignore: implementation_imports
 import 'package:json_serializable/src/settings.dart';
 import 'package:source_gen/source_gen.dart';
 import 'plugin.dart';
@@ -12,7 +13,7 @@ import 'plugin.dart';
 void start(List<String> args, SendPort sendPort) {
   ServerPluginStarter(
     BuildAnalyzerPlugin(
-        builders: [jsonSerializable(BuilderOptions(const {}, isRoot: true))],
+        builders: [jsonSerializable(const BuilderOptions({}, isRoot: true))],
         resourceProvider: PhysicalResourceProvider.INSTANCE),
   ).start(sendPort);
 }
@@ -47,9 +48,6 @@ Builder jsonSerializable(BuilderOptions options) {
 
 /// Returns a [Builder] for use within a `package:build_runner`
 /// `BuildAction`.
-///
-/// [formatOutput] is called to format the generated code. If not provided,
-/// the default Dart code formatter is used.
 Builder jsonPartBuilder({
   JsonSerializable? config,
 }) {

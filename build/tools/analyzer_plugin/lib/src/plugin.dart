@@ -11,7 +11,7 @@ import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:analyzer_plugin/protocol/protocol_generated.dart';
 
 import 'package:build/build.dart';
-import 'package:crypto/src/digest.dart';
+import 'package:crypto/crypto.dart';
 import 'package:glob/glob.dart';
 import 'package:logging/logging.dart';
 
@@ -36,9 +36,13 @@ class BuildAnalyzerPlugin extends ServerPlugin {
     _ensureListeningToLogs();
   }
 
-  /// Analyzes the given files.
-  /// By default invokes [analyzeFile] for every file.
-  /// Implementations may override to optimize for batch analysis.
+  /// Analyzes the given files, but in "parallel" unlike the inherited
+  /// implementation.
+  ///
+  /// We need to use `Future.wait` because we debounce the actual work, so if
+  /// we did that serially for each file it would be O(N * debounce delay)
+  /// instead of O(N + debounce delay).
+  @override
   Future<void> analyzeFiles({
     required AnalysisContext analysisContext,
     required List<String> paths,
@@ -75,7 +79,7 @@ class BuildAnalyzerPlugin extends ServerPlugin {
 
     // Avoid doing tons of rebuilds as a user types, we wait a second and only
     // if this is still the latest build do we actually do anything;
-    await Future.delayed(Duration(seconds: 1));
+    await Future<void>.delayed(const Duration(seconds: 1));
     if (_scheduledBuilds[path] == scheduledTask) {
       await scheduledTask();
     }
@@ -100,11 +104,11 @@ class BuildAnalyzerPlugin extends ServerPlugin {
 
     for (var builder in builders) {
       var completer = Completer<void>();
-      final logger = Logger('${builder}');
+      final logger = Logger(builder.toString());
       // We need to capture the zone for logging errors, onError runs in
       // the parent zone.
       late final Zone zone;
-      runZonedGuarded(() async {
+      unawaited(runZonedGuarded(() async {
         zone = Zone.current;
         await _runBuilder(
             builder,
@@ -114,15 +118,15 @@ class BuildAnalyzerPlugin extends ServerPlugin {
             _AnalyzerWriter(channel, analysisContext, resourceProvider),
             AnalyzerResolvers(analysisContext.currentSession),
             logger);
-
-        if (!completer.isCompleted) completer.complete();
       }, (e, s) {
         logger.log(Level.SEVERE, null, e, s, zone);
         if (!completer.isCompleted) completer.complete();
       }, zoneValues: {
         _pathZoneKey: path,
         _analyzeFileLogsKey: logsForFile,
-      });
+      })?.whenComplete(() {
+        if (!completer.isCompleted) completer.complete();
+      }));
       await completer.future;
     }
 
@@ -138,7 +142,7 @@ class BuildAnalyzerPlugin extends ServerPlugin {
         // TODO: Grab from stack trace?
         Location(path, 0, 10, 1, 1, endLine: 1, endColumn: 11),
         log.fullMessage,
-        '${log.loggerName}',
+        log.loggerName,
       );
     }
 
@@ -179,7 +183,7 @@ class BuildAnalyzerPlugin extends ServerPlugin {
           .toList();
 
   @override
-  String get name => "Analyzer plugin for package:build";
+  String get name => 'Analyzer plugin for package:build';
 
   @override
   String get version => '1.0.0';
