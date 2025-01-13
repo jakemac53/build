@@ -147,7 +147,7 @@ class BuildAnalyzerPlugin extends ServerPlugin {
       if (log.error case InvalidGenerationSource sourceGenError) {
         var location = switch (sourceGenError) {
               InvalidGenerationSource(node: var node?) =>
-                Location(path, node.offset, node.length, 2, 1),
+                Location(path, node.offset, node.length, 1, 1),
               InvalidGenerationSource(
                 element: analyzer.Element(
                   declaration: analyzer.Element(
@@ -156,7 +156,7 @@ class BuildAnalyzerPlugin extends ServerPlugin {
                   )
                 )
               ) =>
-                Location(path, offset, length, 3, 1),
+                Location(path, offset, length, 1, 1),
               _ => null,
             } ??
             Location(path, 0, 10, 1, 1, endLine: 1, endColumn: 11);

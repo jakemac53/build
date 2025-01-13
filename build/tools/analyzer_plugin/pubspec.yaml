@@ -9,6 +9,8 @@ dependencies:
   analyzer:
   analyzer_plugin:
   build:
+  built_value:
+  built_value_generator:
   collection:
   crypto:
   glob:

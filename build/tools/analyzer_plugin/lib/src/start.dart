@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer_plugin/starter.dart';
 import 'package:build/build.dart';
+import 'package:built_value_generator/built_value_generator.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:json_serializable/json_serializable.dart';
 // ignore: implementation_imports
@@ -12,9 +13,12 @@ import 'plugin.dart';
 
 void start(List<String> args, SendPort sendPort) {
   ServerPluginStarter(
-    BuildAnalyzerPlugin(
-        builders: [jsonSerializable(const BuilderOptions({}, isRoot: true))],
-        resourceProvider: PhysicalResourceProvider.INSTANCE),
+    BuildAnalyzerPlugin(builders: [
+      PartBuilder([
+        ...jsonSerializable(const BuilderOptions({}, isRoot: true)),
+        const BuiltValueGenerator(),
+      ], '.g.dart')
+    ], resourceProvider: PhysicalResourceProvider.INSTANCE),
   ).start(sendPort);
 }
 
@@ -24,7 +28,7 @@ void start(List<String> args, SendPort sendPort) {
 /// `json_serializable`.
 ///
 /// Not meant to be invoked by hand-authored code.
-Builder jsonSerializable(BuilderOptions options) {
+List<Generator> jsonSerializable(BuilderOptions options) {
   try {
     final config = JsonSerializable.fromJson(options.config);
     return jsonPartBuilder(config: config);
@@ -48,21 +52,18 @@ Builder jsonSerializable(BuilderOptions options) {
 
 /// Returns a [Builder] for use within a `package:build_runner`
 /// `BuildAction`.
-Builder jsonPartBuilder({
+List<Generator> jsonPartBuilder({
   JsonSerializable? config,
 }) {
   final settings = Settings(config: config);
 
-  return PartBuilder(
-    [
-      _UnifiedGenerator([
-        JsonSerializableGenerator.fromSettings(settings),
-        const JsonEnumGenerator(),
-      ]),
-      const JsonLiteralGenerator(),
-    ],
-    '.g.dart',
-  );
+  return [
+    _UnifiedGenerator([
+      JsonSerializableGenerator.fromSettings(settings),
+      const JsonEnumGenerator(),
+    ]),
+    const JsonLiteralGenerator(),
+  ];
 }
 
 /// Allows exposing separate [GeneratorForAnnotation] instances as one
