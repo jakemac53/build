@@ -51,33 +51,49 @@ class BuildAnalyzerPlugin extends ServerPlugin {
   }) async {
     var pathSet = paths.toSet();
 
-    // First analyze priority files.
+    // First analyze priority files and write results out to disk.
+    var filesToWrite = <io.File, List<int>>{};
     await Future.wait([
       for (var path in priorityPaths)
         if (pathSet.remove(path))
           analyzeFile(
             analysisContext: analysisContext,
             path: path,
+            filesToWrite: filesToWrite,
           )
     ]);
+    await Future.wait(filesToWrite.entries
+        .map((entry) => entry.key.writeAsBytes(entry.value)));
 
     // Then analyze the remaining files.
+    //
+    // Note that this will debounce before performing any work, which is good
+    // because some are probably invalidated by the previous writes anyways, so
+    // our analysis context is likely out of date.
+    filesToWrite.clear();
     await Future.wait([
       for (var path in pathSet)
         analyzeFile(
           analysisContext: analysisContext,
           path: path,
+          filesToWrite: filesToWrite,
         )
     ]);
+    await Future.wait(filesToWrite.entries
+        .map((entry) => entry.key.writeAsBytes(entry.value)));
   }
 
   @override
-  Future<void> analyzeFile({
+  Future<Map<io.File, List<int>>> analyzeFile({
     required AnalysisContext analysisContext,
     required String path,
+    Map<io.File, List<int>>? filesToWrite,
   }) async {
-    var scheduledTask = _scheduledBuilds[path] =
-        () => _analyzeFile(analysisContext: analysisContext, path: path);
+    filesToWrite ??= <io.File, List<int>>{};
+    var scheduledTask = _scheduledBuilds[path] = () => _analyzeFile(
+        analysisContext: analysisContext,
+        path: path,
+        filesToWrite: filesToWrite!);
 
     // Avoid doing tons of rebuilds as a user types, we wait a second and only
     // if this is still the latest build do we actually do anything;
@@ -85,12 +101,16 @@ class BuildAnalyzerPlugin extends ServerPlugin {
     if (_scheduledBuilds[path] == scheduledTask) {
       await scheduledTask();
     }
+    return filesToWrite;
   }
 
   /// Actual implementation, we only run this after a short debounce delay.
+  ///
+  /// Returns a map of files to write and their contents.
   Future<void> _analyzeFile({
     required AnalysisContext analysisContext,
     required String path,
+    required Map<io.File, List<int>> filesToWrite,
   }) async {
     final logsForFile = <LogRecord>[];
     // Exit if `path` isn't under the current root.
@@ -117,7 +137,8 @@ class BuildAnalyzerPlugin extends ServerPlugin {
             path,
             assetId,
             _AnalyzerReader(analysisContext.currentSession),
-            _AnalyzerWriter(channel, analysisContext, resourceProvider),
+            _AnalyzerWriter(
+                channel, analysisContext, resourceProvider, filesToWrite),
             AnalyzerResolvers(analysisContext.currentSession),
             logger);
       }, (e, s) {
@@ -264,8 +285,10 @@ class _AnalyzerWriter implements AssetWriter {
   final PluginCommunicationChannel channel;
   final AnalysisContext context;
   final ResourceProvider resourceProvider;
+  final Map<io.File, List<int>> filesToWrite;
 
-  _AnalyzerWriter(this.channel, this.context, this.resourceProvider);
+  _AnalyzerWriter(
+      this.channel, this.context, this.resourceProvider, this.filesToWrite);
 
   @override
   Future<void> writeAsBytes(AssetId id, List<int> bytes) async {
@@ -288,7 +311,7 @@ class _AnalyzerWriter implements AssetWriter {
     // TODO: This gives an error about overlay file systems not being able to
     // write files.
     // file.writeAsBytesSync(bytes);
-    await io.File(file.path).writeAsBytes(bytes);
+    filesToWrite[io.File(file.path)] = bytes;
   }
 
   @override
